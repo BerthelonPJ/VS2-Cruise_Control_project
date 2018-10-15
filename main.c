@@ -1,6 +1,6 @@
 //
 //  main.c
-//  CoffeeMaker
+//  Cruise Control
 //
 //  Created by Pierre-Jean Berthelon on 04/10/2018.
 //  Copyright © 2018 Pierre-Jean Berthelon. All rights reserved.
@@ -69,41 +69,6 @@ int initDisplay(void)
     return(0);
 }
 
-/** This function initializes the TimerCounter 0 to provide a PWM to dim the display (backlight) */
-void TimerCounter0setup(int start)
-{
-    //Setup mode on Timer counter 0 to PWM phase correct
-    TCCR0A = (0<<WGM01) | (1<<WGM00);
-    //Set OC0A on compare match when counting up and clear when counting down
-    TCCR0A |= (1<<COM0A1) | (1<<COM0A0);
-    //Setup pre-scaller for timer counter 0
-    TCCR0A |= (0<<CS02) | (0<<CS01) | (1<<CS00);  //Source clock IO, no pre-scaling
-
-    //Setup output compare register A
-    OCR0A = start;
-}
-
-void TimerCounter3setup(void)
-{
-    // The timing of the motor to be centered is 20ms periodicity and 1.5 ms high.
-    // at 16MHz, this is over 800 million count and we have on 65535 in a 16 bit counter.
-    // a pre-scaler is needed. With a f/64, we get 250 kHz or 262 ms per max overflow.
-
-    //Setup pre-scaller for timer counter 3.
-    TCCR3B |= (0<<CS32) | (1<<CS31) | (1<<CS30);  //Source clock IO, /64. (Note ORing with 0 does not clear the bit)
-
-    //Setup mode on Timer counter 3 to CTC
-    TCCR3B |= (1<<WGM33) | (0<<WGM32);
-    TCCR3A |= (0<<WGM31) | (0<<WGM30); // (Note ORing with 0 does not clear the bit)
-
-    //Set OC3B on compare match when counting up and clear on Top
-    TCCR3A |= (1<<COM3B1) | (0<<COM3B0);
-
-    //Setup output compare register A
-    pWidth = 188; // 1.5 ms
-    OCR3B = pWidth; //
-    ICR3 = 2500; // 20ms * 250 kH is the number of clock cycles/prescaler /2 for phase correct
-}
 
 /** This function is called when cycling up the states.*/
 int dbStateUp(void)
@@ -127,53 +92,6 @@ int dbStateDown(void)
     return 0;
 }
 // The purpose of this function is to get the current_speed of the car.
-uint16_t getSpeed(void)
-{
-  return adc_value;
-}
-int cruiseControlManager(uint16_t set_speed)
-{
-  if (bToggle)
-  {
-    if ((buttons & 0b10000000) || (buttons & 0b00001000)) // If brake button or on/off button is pushed
-    {
-      switchCruise(1);
-    }
-    else // e.g if we want the cruise control manager to do its job
-    {
-
-    }
-  }
-}
-
-// The purpose of this function is to enable or disable the cruise control of the car.
-int switchCruise(int mode)
-{
-  switch (mode)
-  {
-    case 1: //In that case we have to disable cruise control.
-      break;
-    case 0: // In that case we enable againt the cruise control.
-     //int current_speed=0;
-	  //current_speed = getSpeed();
-	  printf ("coucou");
-      printf ("%d", getSpeed());
-	  PINC &= 0b00000100;
-      //cruiseControlManager(current_speed); // Call of the function which is in charge of the cruise control.
-      break;
-    default:
-      break;
-  }
-  return 0;
-}
-/* This function describes how the system should react to a demand of coffee made by the user. */
-int brake(void)
-{
-  PORTC&=0b00000010;
-  switchCruise(1);
-  return(0);
-}
-
 /** This function uses the push buttons to let the user to change states upon boot up. It is also used to enter in Coffee maker mode*/
 int DbBOOThandler(void)
 {
@@ -303,51 +221,7 @@ int DbACCELhandler(void)
 
 
 int main(void) {
-    unsigned char temp ;        //Allocate memory for  temp
-    char cursor = 0;                /* allocate a variable to keep track of the cursor position and initialize it to 0 */
-    char textLine[DISPLAYLENGTH + 1];    /* allocate a consecutive array of 16 characters where your text will be stored with an end of string */
-    char text[10];                //Allocate an array of 10 bytes to store text
-    int adcBuffer;            // Allocate the memory to hold ADC results that is not disturbed by interrupts
-
-    textLine[0] = 'A';                /* initialize the first ASCII character to A or 0x41 */
-    textLine[1] = '\0';                /* initialize the second character to be an end of text string */
-
-    initGPIO();        //Set up the data direction register for both ports B, C and G
-    initDisplay();    //Set up the display
-    initExtInt();    //Set up the external interrupt for the push buttons
-    initADC();        // Setup the Analog to Digital Converter
-    TimerCounter0setup(128);// enable the dimming of the display backlight with PWM using TimerCounter 0 and pin OCR0
-    TimerCounter3setup();    // enable the position control of the Parallax servo motor with PWM using TimerCounter 3 and pin OCR3B JP11.INT4  (OC3B) to white wire (IO) on the motor
-
-    ADCSRA |= (1<<ADSC);    //Start ADC
-    sei();                    // Set Global Interrupts
-
-    while(1)
-    {
-        if (bToggle)            //This is set to true only in the interrupt service routine at the bottom of the code
-        {
-            switch (dbState){
-                case DBOOT:
-                    DbBOOThandler();
-                    break;
-                case DSPEED:
-                    DbSPEEDhandler();
-                    break;
-                case DSTEER:
-                    DbSTEERhandler();
-                    break;
-                case DTEMP:
-                    DbTEMPhandler();
-                    break;
-                case DACCEL:
-                    DbACCELhandler();
-                    break;
-                default:
-                    break;
-            }
-            bToggle = 0;            // clear the flag.
-        }
-    }
+    
     return 0;
 }
 
