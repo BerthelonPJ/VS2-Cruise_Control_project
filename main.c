@@ -221,7 +221,103 @@ int DbACCELhandler(void)
 
 
 int main(void) {
-    
+  char cursor = 0;				/* allocate a variable to keep track of the cursor position and initialize it to 0 */
+  char textLine[DISPLAYLENGTH + 1];	/* allocate a consecutive array of 16 characters where your text will be stored with an end of string */
+  char text[10];				//Allocate an array of 10 bytes to store text
+  uint16_t adcBuffer;			// Allocate the memory to hold ADC results that is not disturbed by interrupts
+
+  textLine[0] = 'A';				/* initialize the first ASCII character to A or 0x41 */
+  textLine[1] = '\0';				/* initialize the second character to be an end of text string */
+  temp = initGPIO();		//Set up the data direction register for both ports B, C and G
+	temp = initDisplay();	//Set up the display
+  temp = initExtInt();	//Set up the external interrupt for the push buttons
+  temp = initADC();		// Setup the Analog to Digital Converter
+  TimerCounter0setup(128);// enable the dimming of the display backlight with PWM using TimerCounter 0 and pin OCR0
+
+  ADCSRA |= (1<<ADSC);	//Start ADC
+  sei();					// Set Global Interrupts
+
+  while(1)
+	{
+		ADCSRA &= ~(1<<ADIE);		//disable ADC interrupt to prevent value update during the conversion
+		adcBuffer = adc_value;
+		ADCSRA |= (1<<ADIE);		//re-enable ADC interrupt
+
+    OCR0A = adcBuffer >> 2;		// using the top 8 bits of the ADC, load OCR0A to compare to the timer Counter 0 to generate aPWM for the display back light
+		if (adcBuffer>852)
+    {			// turning on the LEDs as a function of the ADC, regardless of the state the software is in.
+			PORTC = 0b00000111;
+			PORTG |= 0b00000011;
+		}
+		else if(adcBuffer>682)
+    {
+			PORTC = 0b00000011;
+			PORTG |= 0b00000011;
+		}
+		else if(adcBuffer>511)
+    {
+			PORTC = 0b00000001;
+			PORTG |= 0b00000011;
+		}
+		else if(adcBuffer>341)
+    {
+			PORTC = 0b00000000;
+			PORTG |= 0b00000011;
+		}
+		else if(adcBuffer>170)
+    {
+			PORTC = 0b00000000;
+			PORTG |= 0b00000001;
+			PORTG &= 0b11111101;
+		}
+		else
+    {
+			PORTC = 0b00000000;
+			PORTG &= 0b00000000;
+		}
+
+		if (bToggle)			//This is set to true only in the interrupt service routine at the bottom of the code
+		{
+			switch (dbState){
+				case DBOOT:
+					DbBOOThandler();
+					break;
+				case DADC:
+					DbADChandler();
+					break;
+				case DTEXT:
+					cursor = DbTEXThandler(textLine, cursor);
+					break;
+				default:
+					break;
+			}
+			bToggle = 0;			// clear the flag.
+		}
+
+		switch (dbState){
+			case DBOOT:
+				break;
+			case DTEXT:
+				lcdGotoXY(0, 1);     //Position the cursor on
+				lcdPrintData(textLine, strlen(textLine)); //Display the text on the LCD
+				break;
+			case DADC:
+				itoa(adcBuffer, text, 9);	//Convert the unsigned integer to an ascii string; look at 3.6 "The C programming language"
+				lcdGotoXY(5, 1);     //Position the cursor on
+				lcdPrintData("      ", 6); //Clear the lower part of the LCD
+				lcdGotoXY(5, 1);     //Position the cursor on
+				lcdPrintData(text, strlen(text)); //Display the text on the LCD
+				break;
+			default:
+				lcdGotoXY(0, 1);     //Position the cursor on the first character of the first line
+				lcdPrintData("You have a bug!", 15); //Inform of the problem
+				break;
+		}
+	}
+
+
+
+
     return 0;
 }
 
