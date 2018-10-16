@@ -18,10 +18,10 @@
 #include "spi.h"
 
 #define DISPLAYLENGTH 16
-#define DTOP DACCEL
+#define DTOP DSTEER
 
-enum dStates {DBOOT, DSPEED, DSTEER, DTEMP, DACCEL};    /* enumeration of states (C programming, p) */
-char *dbStateName[] = {"Speed", "Steering Angle", "Temp.", "Accel."}; /* initialization of Pointer Array*/
+enum dStates {DBOOT,DSPEED,DTEMP,DACCEL,DSTEER};    /* enumeration of states (C programming, p) */
+char *dbStateName[] = {"Coucou ça boot","Speed", "Steering Angle", "Temp.", "Accel."}; /* initialization of Pointer Array*/
 volatile unsigned int dbState;        /* display's state (activated by buttons)*/
 volatile unsigned char buttons;        // This registers holds a copy of PINC when an external interrupt 6 has occurred.
 volatile unsigned char bToggle = 0;    // This registers is a boolean that is set when an interrupt 6 occurs and cleared when serviced in the code.
@@ -91,6 +91,10 @@ int dbStateDown(void)
     lcdPrintData(dbStateName[dbState], strlen(dbStateName[dbState])); //Display the text on the LCD
     return 0;
 }
+/*int brake(void)
+{
+	return 0;
+}*/
 // The purpose of this function is to get the current_speed of the car.
 /** This function uses the push buttons to let the user to change states upon boot up. It is also used to enter in Coffee maker mode*/
 int DbBOOThandler(void)
@@ -122,7 +126,7 @@ int DbSPEEDhandler(void)
 {
     switch(buttons & 0b11111000){
         case 0b10000000:            //S5 center button
-            brake();
+            //brake();
             break;
         case 0b01000000:            //S4  upper button
             dbStateUp();
@@ -147,7 +151,7 @@ int DbSTEERhandler(void)
 {
     switch(buttons & 0b11111000){
         case 0b10000000:            //S5 center button
-            brake();
+            //brake();
             break;
         case 0b01000000:            //S4  upper button
             dbStateUp();
@@ -173,7 +177,7 @@ int DbTEMPhandler(void)
 {
     switch(buttons & 0b11111000){
         case 0b10000000:            //S5 center button
-            brake();
+            //brake();
             break;
         case 0b01000000:            //S4  upper button
             dbStateUp();
@@ -198,7 +202,7 @@ int DbACCELhandler(void)
 {
     switch(buttons & 0b11111000){
         case 0b10000000:            //S5 center button
-            brake();
+            //brake();
             break;
         case 0b01000000:            //S4  upper button
             dbStateUp();
@@ -221,6 +225,7 @@ int DbACCELhandler(void)
 
 
 int main(void) {
+  unsigned char temp ;		//Allocate memory for  temp
   char cursor = 0;				/* allocate a variable to keep track of the cursor position and initialize it to 0 */
   char textLine[DISPLAYLENGTH + 1];	/* allocate a consecutive array of 16 characters where your text will be stored with an end of string */
   char text[10];				//Allocate an array of 10 bytes to store text
@@ -229,10 +234,10 @@ int main(void) {
   textLine[0] = 'A';				/* initialize the first ASCII character to A or 0x41 */
   textLine[1] = '\0';				/* initialize the second character to be an end of text string */
   temp = initGPIO();		//Set up the data direction register for both ports B, C and G
-	temp = initDisplay();	//Set up the display
+  temp = initDisplay();	//Set up the display
   temp = initExtInt();	//Set up the external interrupt for the push buttons
   temp = initADC();		// Setup the Analog to Digital Converter
-  TimerCounter0setup(128);// enable the dimming of the display backlight with PWM using TimerCounter 0 and pin OCR0
+  //TimerCounter0setup(128);// enable the dimming of the display backlight with PWM using TimerCounter 0 and pin OCR0
 
   ADCSRA |= (1<<ADSC);	//Start ADC
   sei();					// Set Global Interrupts
@@ -275,18 +280,23 @@ int main(void) {
 			PORTC = 0b00000000;
 			PORTG &= 0b00000000;
 		}
-
 		if (bToggle)			//This is set to true only in the interrupt service routine at the bottom of the code
 		{
 			switch (dbState){
 				case DBOOT:
 					DbBOOThandler();
 					break;
-				case DADC:
-					DbADChandler();
+				case DSPEED:
+					DbSPEEDhandler();
 					break;
-				case DTEXT:
-					cursor = DbTEXThandler(textLine, cursor);
+				case DTEMP:
+					DbTEMPhandler();
+					break;
+				case DACCEL:
+					DbACCELhandler();
+					break;
+				case DSTEER:
+					DbSTEERhandler();
 					break;
 				default:
 					break;
@@ -297,16 +307,18 @@ int main(void) {
 		switch (dbState){
 			case DBOOT:
 				break;
-			case DTEXT:
-				lcdGotoXY(0, 1);     //Position the cursor on
-				lcdPrintData(textLine, strlen(textLine)); //Display the text on the LCD
-				break;
-			case DADC:
-				itoa(adcBuffer, text, 9);	//Convert the unsigned integer to an ascii string; look at 3.6 "The C programming language"
+			case DSPEED:
+				itoa(adcBuffer, text, 10);	//Convert the unsigned integer to an ascii string; look at 3.6 "The C programming language"
 				lcdGotoXY(5, 1);     //Position the cursor on
 				lcdPrintData("      ", 6); //Clear the lower part of the LCD
-				lcdGotoXY(5, 1);     //Position the cursor on
+			    lcdGotoXY(5, 1);     //Position the cursor on
 				lcdPrintData(text, strlen(text)); //Display the text on the LCD
+				break;
+			case DTEMP:
+				break;
+			case DACCEL:
+				break;
+			case DSTEER:
 				break;
 			default:
 				lcdGotoXY(0, 1);     //Position the cursor on the first character of the first line
@@ -314,11 +326,7 @@ int main(void) {
 				break;
 		}
 	}
-
-
-
-
-    return 0;
+  return 0;
 }
 
 /* the functions below are Interrupt Service Routines, they are never called by software */
