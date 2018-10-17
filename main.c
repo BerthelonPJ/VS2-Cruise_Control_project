@@ -20,20 +20,10 @@
 #define DISPLAYLENGTH 16
 #define DTOP DSTEER
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 #define LM77_ADDR	0x48 // I2C address of the LM77 temperature sensor
 
 enum dStates {DBOOT,DSPEED,DTEMP,DACCEL,DSTEER};    /* enumeration of states (C programming, p) */
 char *dbStateName[] = {"Coucou ça boot","Speed", "Temp.", "Accel.", "Steer"}; /* initialization of Pointer Array*/
-=======
-enum dStates {DBOOT,DSPEED,DTEMP,DACCEL,DSTEER};    /* enumeration of states (C programming, p) */
-char *dbStateName[] = {"Coucou ça boot","Speed", "Steering Angle", "Temp.", "Accel."}; /* initialization of Pointer Array*/
->>>>>>> 225cecc5650445554b23961d337505651e3188fd
-=======
-enum dStates {DBOOT,DSPEED,DTEMP,DACCEL,DSTEER};    /* enumeration of states (C programming, p) */
-char *dbStateName[] = {"Coucou ça boot","Speed", "Steering Angle", "Temp.", "Accel."}; /* initialization of Pointer Array*/
->>>>>>> 225cecc5650445554b23961d337505651e3188fd
 volatile unsigned int dbState;        /* display's state (activated by buttons)*/
 volatile unsigned char buttons;        // This registers holds a copy of PINC when an external interrupt 6 has occurred.
 volatile unsigned char bToggle = 0;    // This registers is a boolean that is set when an interrupt 6 occurs and cleared when serviced in the code.
@@ -253,16 +243,8 @@ void error(unsigned char val)
 
 
 int main(void) {
-<<<<<<< HEAD
-<<<<<<< HEAD
   //unsigned char temp ;		//Allocate memory for  temp
   char temp, tempLow ;		//Allocate memory for  temp and temp2
-=======
-  unsigned char temp ;		//Allocate memory for  temp
->>>>>>> 225cecc5650445554b23961d337505651e3188fd
-=======
-  unsigned char temp ;		//Allocate memory for  temp
->>>>>>> 225cecc5650445554b23961d337505651e3188fd
   char cursor = 0;				/* allocate a variable to keep track of the cursor position and initialize it to 0 */
   char textLine[DISPLAYLENGTH + 1];	/* allocate a consecutive array of 16 characters where your text will be stored with an end of string */
   char text[10];				//Allocate an array of 10 bytes to store text
@@ -281,14 +263,8 @@ int main(void) {
   temp = initExtInt();	//Set up the external interrupt for the push buttons
   temp = initADC();		// Setup the Analog to Digital Converter
   //TimerCounter0setup(128);// enable the dimming of the display backlight with PWM using TimerCounter 0 and pin OCR0
-<<<<<<< HEAD
-<<<<<<< HEAD
   setupTWI(); //Initialization of the TWI, for the temp sensor.
-=======
-=======
->>>>>>> 225cecc5650445554b23961d337505651e3188fd
 
->>>>>>> 225cecc5650445554b23961d337505651e3188fd
   ADCSRA |= (1<<ADSC);	//Start ADC
   sei();					// Set Global Interrupts
 
@@ -338,22 +314,9 @@ int main(void) {
 					break;
 				case DSPEED:
 					DbSPEEDhandler();
-<<<<<<< HEAD
-					break;
-				case DTEMP:
-					DbTEMPhandler();
-<<<<<<< HEAD
 					break;
 				case DACCEL:
 					DbACCELhandler();
-					break;
-=======
-					break;
-				case DACCEL:
-					DbACCELhandler();
-					break;
->>>>>>> 225cecc5650445554b23961d337505651e3188fd
-=======
 					break;
 				case DTEMP:
 					DbTEMPhandler();
@@ -361,7 +324,6 @@ int main(void) {
 				case DACCEL:
 					DbACCELhandler();
 					break;
->>>>>>> 225cecc5650445554b23961d337505651e3188fd
 				case DSTEER:
 					DbSTEERhandler();
 					break;
@@ -376,31 +338,14 @@ int main(void) {
 				break;
 			case DSPEED:
 				itoa(adcBuffer, text, 10);	//Convert the unsigned integer to an ascii string; look at 3.6 "The C programming language"
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-=======
->>>>>>> 225cecc5650445554b23961d337505651e3188fd
 				lcdGotoXY(5, 1);     //Position the cursor on
 				lcdPrintData("      ", 6); //Clear the lower part of the LCD
 			    lcdGotoXY(5, 1);     //Position the cursor on
 				lcdPrintData(text, strlen(text)); //Display the text on the LCD
 				break;
 			case DTEMP:
-				itoa(adcBuffer, text, 9);	//Convert the unsigned integer to an ascii string; look at 3.6 "The C programming language"
-				lcdGotoXY(5, 1);     //Position the cursor on
-				lcdPrintData("      ", 6); //Clear the lower part of the LCD
-				lcdGotoXY(5, 1);     //Position the cursor on
-				lcdPrintData(text, strlen(text)); //Display the text on the LCD
-<<<<<<< HEAD
 				break;
 			case DACCEL:
-				itoa(adcBuffer, text, 9);	//Convert the unsigned integer to an ascii string; look at 3.6 "The C programming language"
->>>>>>> 225cecc5650445554b23961d337505651e3188fd
-				lcdGotoXY(5, 1);     //Position the cursor on
-				lcdPrintData("      ", 6); //Clear the lower part of the LCD
-			    lcdGotoXY(5, 1);     //Position the cursor on
-				lcdPrintData(text, strlen(text)); //Display the text on the LCD
 				break;
 			case DTEMP:
 				//Master receive mode, follow instruction on page 222 of the AT90CAN128 Data sheet
@@ -468,28 +413,6 @@ int main(void) {
 				break;
 			case DSTEER:
 				break;
-			case DSTEER:
-=======
-				break;
-			case DACCEL:
->>>>>>> 225cecc5650445554b23961d337505651e3188fd
-				itoa(adcBuffer, text, 9);	//Convert the unsigned integer to an ascii string; look at 3.6 "The C programming language"
-				lcdGotoXY(5, 1);     //Position the cursor on
-				lcdPrintData("      ", 6); //Clear the lower part of the LCD
-				lcdGotoXY(5, 1);     //Position the cursor on
-				lcdPrintData(text, strlen(text)); //Display the text on the LCD
-				break;
-<<<<<<< HEAD
-=======
-			case DSTEER:
-				itoa(adcBuffer, text, 9);	//Convert the unsigned integer to an ascii string; look at 3.6 "The C programming language"
-				lcdGotoXY(5, 1);     //Position the cursor on
-				lcdPrintData("      ", 6); //Clear the lower part of the LCD
-				lcdGotoXY(5, 1);     //Position the cursor on
-				lcdPrintData(text, strlen(text)); //Display the text on the LCD
-				break;
->>>>>>> 225cecc5650445554b23961d337505651e3188fd
-
 			default:
 				lcdGotoXY(0, 1);     //Position the cursor on the first character of the first line
 				lcdPrintData("You have a bug!", 15); //Inform of the problem
