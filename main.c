@@ -21,10 +21,15 @@
 #define DTOP DSTEER
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 #define LM77_ADDR	0x48 // I2C address of the LM77 temperature sensor
 
 enum dStates {DBOOT,DSPEED,DTEMP,DACCEL,DSTEER};    /* enumeration of states (C programming, p) */
 char *dbStateName[] = {"Coucou ça boot","Speed", "Temp.", "Accel.", "Steer"}; /* initialization of Pointer Array*/
+=======
+enum dStates {DBOOT,DSPEED,DTEMP,DACCEL,DSTEER};    /* enumeration of states (C programming, p) */
+char *dbStateName[] = {"Coucou ça boot","Speed", "Steering Angle", "Temp.", "Accel."}; /* initialization of Pointer Array*/
+>>>>>>> 225cecc5650445554b23961d337505651e3188fd
 =======
 enum dStates {DBOOT,DSPEED,DTEMP,DACCEL,DSTEER};    /* enumeration of states (C programming, p) */
 char *dbStateName[] = {"Coucou ça boot","Speed", "Steering Angle", "Temp.", "Accel."}; /* initialization of Pointer Array*/
@@ -249,8 +254,12 @@ void error(unsigned char val)
 
 int main(void) {
 <<<<<<< HEAD
+<<<<<<< HEAD
   //unsigned char temp ;		//Allocate memory for  temp
   char temp, tempLow ;		//Allocate memory for  temp and temp2
+=======
+  unsigned char temp ;		//Allocate memory for  temp
+>>>>>>> 225cecc5650445554b23961d337505651e3188fd
 =======
   unsigned char temp ;		//Allocate memory for  temp
 >>>>>>> 225cecc5650445554b23961d337505651e3188fd
@@ -273,8 +282,11 @@ int main(void) {
   temp = initADC();		// Setup the Analog to Digital Converter
   //TimerCounter0setup(128);// enable the dimming of the display backlight with PWM using TimerCounter 0 and pin OCR0
 <<<<<<< HEAD
+<<<<<<< HEAD
   setupTWI(); //Initialization of the TWI, for the temp sensor.
 =======
+=======
+>>>>>>> 225cecc5650445554b23961d337505651e3188fd
 
 >>>>>>> 225cecc5650445554b23961d337505651e3188fd
   ADCSRA |= (1<<ADSC);	//Start ADC
@@ -326,6 +338,7 @@ int main(void) {
 					break;
 				case DSPEED:
 					DbSPEEDhandler();
+<<<<<<< HEAD
 					break;
 				case DTEMP:
 					DbTEMPhandler();
@@ -335,6 +348,15 @@ int main(void) {
 					DbACCELhandler();
 					break;
 =======
+					break;
+				case DACCEL:
+					DbACCELhandler();
+					break;
+>>>>>>> 225cecc5650445554b23961d337505651e3188fd
+=======
+					break;
+				case DTEMP:
+					DbTEMPhandler();
 					break;
 				case DACCEL:
 					DbACCELhandler();
@@ -355,7 +377,10 @@ int main(void) {
 			case DSPEED:
 				itoa(adcBuffer, text, 10);	//Convert the unsigned integer to an ascii string; look at 3.6 "The C programming language"
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> 225cecc5650445554b23961d337505651e3188fd
 				lcdGotoXY(5, 1);     //Position the cursor on
 				lcdPrintData("      ", 6); //Clear the lower part of the LCD
 			    lcdGotoXY(5, 1);     //Position the cursor on
@@ -367,6 +392,7 @@ int main(void) {
 				lcdPrintData("      ", 6); //Clear the lower part of the LCD
 				lcdGotoXY(5, 1);     //Position the cursor on
 				lcdPrintData(text, strlen(text)); //Display the text on the LCD
+<<<<<<< HEAD
 				break;
 			case DACCEL:
 				itoa(adcBuffer, text, 9);	//Convert the unsigned integer to an ascii string; look at 3.6 "The C programming language"
@@ -443,12 +469,26 @@ int main(void) {
 			case DSTEER:
 				break;
 			case DSTEER:
+=======
+				break;
+			case DACCEL:
+>>>>>>> 225cecc5650445554b23961d337505651e3188fd
 				itoa(adcBuffer, text, 9);	//Convert the unsigned integer to an ascii string; look at 3.6 "The C programming language"
 				lcdGotoXY(5, 1);     //Position the cursor on
 				lcdPrintData("      ", 6); //Clear the lower part of the LCD
 				lcdGotoXY(5, 1);     //Position the cursor on
 				lcdPrintData(text, strlen(text)); //Display the text on the LCD
 				break;
+<<<<<<< HEAD
+=======
+			case DSTEER:
+				itoa(adcBuffer, text, 9);	//Convert the unsigned integer to an ascii string; look at 3.6 "The C programming language"
+				lcdGotoXY(5, 1);     //Position the cursor on
+				lcdPrintData("      ", 6); //Clear the lower part of the LCD
+				lcdGotoXY(5, 1);     //Position the cursor on
+				lcdPrintData(text, strlen(text)); //Display the text on the LCD
+				break;
+>>>>>>> 225cecc5650445554b23961d337505651e3188fd
 
 			default:
 				lcdGotoXY(0, 1);     //Position the cursor on the first character of the first line
