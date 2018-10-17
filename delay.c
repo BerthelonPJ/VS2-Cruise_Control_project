@@ -30,7 +30,7 @@
  */
 void delay_ms(unsigned char ms)
 {
-   unsigned short delay_count = 4000;
+   unsigned short delay_count = F_CPU / 4000;
 #ifdef __GNUC__
     unsigned short cnt;
     __asm__ __volatile__ ("\n"
@@ -60,8 +60,7 @@ void delay_ms(unsigned char ms)
  */
 void delay_s(unsigned char s)
 {
-	volatile unsigned char i = 0;
-	for ( i=0;i<s;i++)
+	for (unsigned char i=0;i<s;i++)
 	{
 		delay_ms(250);
 		delay_ms(250);

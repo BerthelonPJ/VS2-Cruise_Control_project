@@ -26,7 +26,7 @@
 #ifndef _DELAY_H_
 #define _DELAY_H_
 
-#include "global.h"
+#define  F_CPU  16000000   /* The AVR clock frequency in Hertz */
 
 void delay_ms(unsigned char ms);	//MAX 255ms
 void delay_s(unsigned char s);

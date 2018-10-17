@@ -1,4 +1,4 @@
-/*! \file usart.h \brief USART routines. 
+/*! \file ext_dev.h \brief EXT devices, such as leds etc
  * \author Mikael Larsmark
  * \date 2009-10-28
  */
@@ -23,24 +23,27 @@
  ***************************************************************************/
 
 
-#ifndef _USART_H_
-#define _USART_H_
+#ifndef _EXT_DEV_H_
+#define _EXT_DEV_H_
 
-unsigned char poll_usart0_receive (void);
-void usart0_init (unsigned int baudrate);
-unsigned char usart0_transmit (unsigned char data);
-unsigned char usart0_receive (void);
-unsigned char usart0_receive_loopback (void);
-unsigned char poll_usart0_receive (void);
-unsigned char usart0_sendstring (char *data,unsigned char length);
+#define BUTTON_ALL	0
+#define BUTTON_S1		1
+#define BUTTON_S2		2
+#define BUTTON_S3		3
+#define BUTTON_S4		4
+#define BUTTON_S5		5
 
-unsigned char poll_usart1_receive (void);
-void usart1_init (unsigned int baudrate);
-unsigned char usart1_transmit (unsigned char data);
-unsigned char usart1_receive (void);
-unsigned char usart1_receive_loopback (void);
-unsigned char poll_usart1_receive (void);
-unsigned char usart1_sendstring (char *data,unsigned char length);
+void ext_dev_led_on(unsigned char led_nr);
+void ext_dev_led_off(unsigned char led_nr);
+
+unsigned char ext_dev_read_dip(void);
+
+void ext_dev_relay_on(void);
+void ext_dev_relay_off(void);
+
+unsigned char ext_dev_read_button(unsigned char button);
+
+void ext_dev_lcd_backlight(unsigned char level);
 
 #endif
 

@@ -1,22 +1,56 @@
-/*
- * spi.h
- *
- * Created: 8/24/2018 10:31:43 AM
- *  Author: Jan van Deventer
- * The purpose of these function is to introduce the students to SPI.
- * In this case, we start using it in between boards rather than in between components on a board.
- */ 
+/*! \file spi.h \brief SPI interface driver. */
+//*****************************************************************************
+//
+// File Name	: 'spi.h'
+// Title		: SPI interface driver
+// Author		: Pascal Stang - Copyright (C) 2000-2002
+// Created		: 11/22/2000
+// Revised		: 06/06/2002
+// Version		: 0.6
+// Target MCU	: Atmel AVR series
+// Editor Tabs	: 4
+//
+// NOTE: This code is currently below version 1.0, and therefore is considered
+// to be lacking in some functionality or documentation, or may not be fully
+// tested.  Nonetheless, you can expect most functions to work.
+//
+///	\ingroup driver_avr
+/// \defgroup spi SPI (Serial Peripheral Interface) Function Library (spi.c)
+/// \code #include "spi.h" \endcode
+/// \par Overview
+///		Provides basic byte and word transmitting and receiving via the AVR
+///	SPI interface.  Due to the nature of SPI, every SPI communication operation
+/// is both a transmit and simultaneous receive.
+///
+///	\note Currently, only MASTER mode is supported.
+//
+// This code is distributed under the GNU Public License
+//		which can be found at http://www.gnu.org/licenses/gpl.txt
+//
+//*****************************************************************************
 
-#define DDR_SPI DDRB
-#define DD_MISO PB3
-#define DD_MOSI PB2
-#define DD_SCK PB1
-#define DD_SS PB0
+#ifndef SPI_H
+#define SPI_H
 
-void SPI_MasterInit(void);
+#include "global.h"
 
-void SPI_MasterTransmit(char cData);
+// function prototypes
 
-void SPI_SlaveInit(void);
+// SPI interface initializer
+void spiInit(void);
 
-char SPI_SlaveReceive(void);
+// spiSendByte(u08 data) waits until the SPI interface is ready
+// and then sends a single byte over the SPI port.  This command
+// does not receive anything.
+void spiSendByte(u08 data);
+
+// spiTransferByte(u08 data) waits until the SPI interface is ready
+// and then sends a single byte over the SPI port.  The function also
+// returns the byte that was received during transmission.
+u08 spiTransferByte(u08 data);
+
+// spiTransferWord(u08 data) works just like spiTransferByte but
+// operates on a whole word (16-bits of data).
+u16 spiTransferWord(u16 data);
+
+#endif
