@@ -20,8 +20,15 @@
 #define DISPLAYLENGTH 16
 #define DTOP DSTEER
 
+<<<<<<< HEAD
+#define LM77_ADDR	0x48 // I2C address of the LM77 temperature sensor
+
+enum dStates {DBOOT,DSPEED,DTEMP,DACCEL,DSTEER};    /* enumeration of states (C programming, p) */
+char *dbStateName[] = {"Coucou ça boot","Speed", "Temp.", "Accel.", "Steer"}; /* initialization of Pointer Array*/
+=======
 enum dStates {DBOOT,DSPEED,DTEMP,DACCEL,DSTEER};    /* enumeration of states (C programming, p) */
 char *dbStateName[] = {"Coucou ça boot","Speed", "Steering Angle", "Temp.", "Accel."}; /* initialization of Pointer Array*/
+>>>>>>> 225cecc5650445554b23961d337505651e3188fd
 volatile unsigned int dbState;        /* display's state (activated by buttons)*/
 volatile unsigned char buttons;        // This registers holds a copy of PINC when an external interrupt 6 has occurred.
 volatile unsigned char bToggle = 0;    // This registers is a boolean that is set when an interrupt 6 occurs and cleared when serviced in the code.
@@ -56,6 +63,15 @@ int initExtInt(void)
     EIMSK |= (1<<INTF6);
     return(0);
 }
+
+/** This function initializes the I2C clock */
+void setupTWI()
+{
+	//Setting up TWI baud rate to 100kHz
+	TWBR = 72;		//Look at formula on page 210;
+	TWSR &= ~(1<<TWPS1) & ~(1<<TWPS0); //With no pre-scaler
+}
+
 
 /** This function initializes the LCD display and should be called only once before the while(1) loop in the main(). */
 int initDisplay(void)
@@ -222,14 +238,32 @@ int DbACCELhandler(void)
     }
     return 0;
 }
+void error(unsigned char val)
+{
+	unsigned char text[16];
+	sprintf(text,"Error: 0x%02X",val);
+	lcdGotoXY(0,1);
+	lcdPrintData(text, strlen(text)); //Display the text on the LCD
+}
 
 
 int main(void) {
+<<<<<<< HEAD
+  //unsigned char temp ;		//Allocate memory for  temp
+  char temp, tempLow ;		//Allocate memory for  temp and temp2
+=======
   unsigned char temp ;		//Allocate memory for  temp
+>>>>>>> 225cecc5650445554b23961d337505651e3188fd
   char cursor = 0;				/* allocate a variable to keep track of the cursor position and initialize it to 0 */
   char textLine[DISPLAYLENGTH + 1];	/* allocate a consecutive array of 16 characters where your text will be stored with an end of string */
   char text[10];				//Allocate an array of 10 bytes to store text
   uint16_t adcBuffer;			// Allocate the memory to hold ADC results that is not disturbed by interrupts
+
+
+  char debug;				//debug byte to look at the TWI status register code
+  int temperature;		// Allocate a word for the temperature
+  float curr_temp = 0;		// Floating type memory allocation for the temperature
+
 
   textLine[0] = 'A';				/* initialize the first ASCII character to A or 0x41 */
   textLine[1] = '\0';				/* initialize the second character to be an end of text string */
@@ -238,7 +272,11 @@ int main(void) {
   temp = initExtInt();	//Set up the external interrupt for the push buttons
   temp = initADC();		// Setup the Analog to Digital Converter
   //TimerCounter0setup(128);// enable the dimming of the display backlight with PWM using TimerCounter 0 and pin OCR0
+<<<<<<< HEAD
+  setupTWI(); //Initialization of the TWI, for the temp sensor.
+=======
 
+>>>>>>> 225cecc5650445554b23961d337505651e3188fd
   ADCSRA |= (1<<ADSC);	//Start ADC
   sei();					// Set Global Interrupts
 
@@ -291,10 +329,17 @@ int main(void) {
 					break;
 				case DTEMP:
 					DbTEMPhandler();
+<<<<<<< HEAD
 					break;
 				case DACCEL:
 					DbACCELhandler();
 					break;
+=======
+					break;
+				case DACCEL:
+					DbACCELhandler();
+					break;
+>>>>>>> 225cecc5650445554b23961d337505651e3188fd
 				case DSTEER:
 					DbSTEERhandler();
 					break;
@@ -309,17 +354,102 @@ int main(void) {
 				break;
 			case DSPEED:
 				itoa(adcBuffer, text, 10);	//Convert the unsigned integer to an ascii string; look at 3.6 "The C programming language"
+<<<<<<< HEAD
+=======
 				lcdGotoXY(5, 1);     //Position the cursor on
 				lcdPrintData("      ", 6); //Clear the lower part of the LCD
 			    lcdGotoXY(5, 1);     //Position the cursor on
 				lcdPrintData(text, strlen(text)); //Display the text on the LCD
 				break;
 			case DTEMP:
+				itoa(adcBuffer, text, 9);	//Convert the unsigned integer to an ascii string; look at 3.6 "The C programming language"
+				lcdGotoXY(5, 1);     //Position the cursor on
+				lcdPrintData("      ", 6); //Clear the lower part of the LCD
+				lcdGotoXY(5, 1);     //Position the cursor on
+				lcdPrintData(text, strlen(text)); //Display the text on the LCD
 				break;
+			case DACCEL:
+				itoa(adcBuffer, text, 9);	//Convert the unsigned integer to an ascii string; look at 3.6 "The C programming language"
+>>>>>>> 225cecc5650445554b23961d337505651e3188fd
+				lcdGotoXY(5, 1);     //Position the cursor on
+				lcdPrintData("      ", 6); //Clear the lower part of the LCD
+			    lcdGotoXY(5, 1);     //Position the cursor on
+				lcdPrintData(text, strlen(text)); //Display the text on the LCD
+				break;
+			case DTEMP:
+				//Master receive mode, follow instruction on page 222 of the AT90CAN128 Data sheet
+      			//Send start condition
+				TWCR = (1<<TWINT) | (1<<TWSTA) | (1<<TWEN);
+				//Wait for TWINT flag to be set (Start has been transmitted)
+				while ( !(TWCR & (1<<TWINT)));
+				//Check the value of the TWI status register, making the pre-scaler
+				debug = TWSR;
+				if ((debug & 0xF8) != 0x08)	//We are master of the bus
+				{
+					error(debug & 0xF8);
+				}
+				//Load LM77 address to TWI data register
+				TWDR = ((LM77_ADDR << 1)| 0x01 ); //Shift the 7 bit address while or-ing it with the read bit
+				TWCR = (1 << TWINT) | (1 << TWEN); //Clear TWINT to start the transmission
+				 while (!(TWCR & (1<<TWINT)));  //Wait for TWINT flag to be set which indicates that the address was sent and acknowledged
+				debug = TWSR;
+				if ((debug & 0xF8) != 0x40)  //SLA+R has been sent and acknowledge has been received
+				{
+					error(debug & 0xF8);
+				}
+				TWCR = (1 << TWINT) | (1 << TWEN) | (1<<TWEA); //Clear TWINT to start the reception of the first byte
+				//enable acknowledge for the first byte.
+				while (!(TWCR & (1<<TWINT)));  //Wait for TWINT flag to be set which indicates that the address was sent and acknowledged
+				debug = TWSR;
+				if ((debug & 0xF8) != 0x50)  //Data byte has been received and ACK has been sent
+				{
+					error(debug & 0xF8);
+				}
+
+				temp = TWDR; //High byte (D15-D8)
+
+				TWCR = (1 << TWINT) | (1 << TWEN) ; //Clear TWINT to start the reception of the second byte
+				while (!(TWCR & (1<<TWINT)));  //Wait for TWINT flag to be set which indicates that the address was sent and acknowledged
+				debug = TWSR;
+				if ((debug & 0xF8) != 0x58)  //Look for an acknowledgment from the LM77
+				{
+					error(debug & 0xF8);
+				}
+				tempLow = TWDR;		// Low byte (D7-D0)
+
+				//Transmit STOP condition
+				TWCR = (1<<TWINT) | (1<<TWEN) | (1<<TWSTO);
+
+				tempLow = (tempLow>>3) | ((temp & 0x07)<<5);	// The lower 3 bits of the least significant byte do not refer to the temperature. We shift them out and need to bring in bits from the MSB
+				temp = (temp >> 3);
+				temperature = (temp << 8) | tempLow;
+
+
+				if (temperature & 0x200)
+				{
+					temperature = !temperature + 1;	// two's complement
+					curr_temp = temperature * (-0.5f);
+				}
+				else
+					curr_temp = temperature * (0.5f);
+
+				//Copy the temperature into the display[0] 16 byte character buffer
+				sprintf(text,"Temp: %.1fC", curr_temp);
+				lcdGotoXY(0,1);
+				lcdPrintData(text, strlen(text)); //Display the text on the LCD
+      break;
 			case DACCEL:
 				break;
 			case DSTEER:
 				break;
+			case DSTEER:
+				itoa(adcBuffer, text, 9);	//Convert the unsigned integer to an ascii string; look at 3.6 "The C programming language"
+				lcdGotoXY(5, 1);     //Position the cursor on
+				lcdPrintData("      ", 6); //Clear the lower part of the LCD
+				lcdGotoXY(5, 1);     //Position the cursor on
+				lcdPrintData(text, strlen(text)); //Display the text on the LCD
+				break;
+
 			default:
 				lcdGotoXY(0, 1);     //Position the cursor on the first character of the first line
 				lcdPrintData("You have a bug!", 15); //Inform of the problem
