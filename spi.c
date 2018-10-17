@@ -1,44 +1,130 @@
-/*
- * spi.c
- *
- * Created: 8/24/2018 10:31:43 AM
- *  Author: Jan van Deventer
- * The purpose of these function is to introduce the students to SPI.
- * In this case, we start using it in between boards rather than in between components on a board.
- */ 
+/*! \file spi.c \brief SPI interface driver. */
+//*****************************************************************************
+//
+// File Name	: 'spi.c'
+// Title		: SPI interface driver
+// Author		: Pascal Stang - Copyright (C) 2000-2002 - Modified by Mikael Larsmark
+// Created		: 11/22/2000
+// Revised		: 06/06/2002
+// Version		: 0.6
+// Target MCU	: Atmel AVR series
+// Editor Tabs	: 4
+//
+// NOTE: This code is currently below version 1.0, and therefore is considered
+// to be lacking in some functionality or documentation, or may not be fully
+// tested.  Nonetheless, you can expect most functions to work.
+//
+// This code is distributed under the GNU Public License
+//		which can be found at http://www.gnu.org/licenses/gpl.txt
+//
+//*****************************************************************************
 
-#include <avr/io.h> // input output header file for this AVR chip.
+#include <avr/io.h>
+#include <avr/interrupt.h>
+
 #include "spi.h"
 
-void SPI_MasterInit(void)
+// Define the SPI_USEINT key if you want SPI bus operation to be
+// interrupt-driven.  The primary reason for not using SPI in
+// interrupt-driven mode is if the SPI send/transfer commands
+// will be used from within some other interrupt service routine
+// or if interrupts might be globally turned off due to of other
+// aspects of your program
+//
+// Comment-out or uncomment this line as necessary
+//#define SPI_USEINT
+
+// global variables
+volatile u08 spiTransferComplete;
+
+// SPI interrupt service handler
+#ifdef SPI_USEINT
+SIGNAL(SIG_SPI)
 {
-	DDR_SPI |= (1<<DD_MOSI)|(1<<DD_SCK)|(1<<DD_SS); //Master out Slave in is an output, Clock is an output, Slave select at output(this limits the master to be both but OK for here)
-	DDR_SPI &= ~(1<<DD_MISO);	//Master in Slave out is an input
-	PORTB |= (1<<DD_SS);		//set the slave select high: idle 
-	/* Enable SPI, Master, set clock rate fck/16 */
-	SPCR = (1<<SPE)|(1<<MSTR)|(1<<SPR0);
+	spiTransferComplete = TRUE;
+}
+#endif
+
+// access routines
+void spiInit()
+{
+	// setup SPI I/O pins
+	sbi(PORTB, 1);		// set SCK hi
+	sbi(DDRB, 1);		// set SCK as output
+	cbi(DDRB, 3);		// set MISO as input
+	sbi(DDRB, 2);		// set MOSI as output
+	sbi(DDRB, 0);		// SS must be output for Master mode to work
+	
+	// setup SPI interface :
+	// master mode
+	sbi(SPCR, MSTR);
+	// clock = f/128
+	sbi(SPCR, SPR0);
+	sbi(SPCR, SPR1);
+	// select clock phase negative-going in middle of data
+	cbi(SPCR, CPOL);
+	cbi(SPCR, CPHA);
+	// Data order MSB first
+	cbi(SPCR,DORD);
+	// enable SPI
+	sbi(SPCR, SPE);
+
+	// clear status
+	inb(SPSR);
+	spiTransferComplete = TRUE;
 }
 
-void SPI_SlaveInit(void)
+void spiSendByte(u08 data)
 {
-	DDR_SPI |= (1<<DD_MISO);	/* Set MISO output */
-	DDR_SPI &= ~(1<<DD_SS);		//Set slave select as an input
-	/* Enable SPI */
-	SPCR = (1<<SPE)|(1<<SPIE);	//Enable SPI and its interrupt
+	// send a byte over SPI and ignore reply
+	#ifdef SPI_USEINT
+		while(!spiTransferComplete);
+	#else
+		while(!(inb(SPSR) & (1<<SPIF)));
+	#endif
+
+	spiTransferComplete = FALSE;
+	outb(SPDR, data);
 }
 
-void SPI_MasterTransmit(char cData)
+u08 spiTransferByte(u08 data)
 {
-PORTB &= ~(1<<DD_SS); //start transmission by pulling low the Slave Select line
-SPDR = cData;	// Load the data and start the transmission
-while(!(SPSR & (1<<SPIF)));	/* Wait for transmission complete */
-PORTB |= (1<<DD_SS); //Return to idle mode
+/*	// make sure interface is idle
+	#ifdef SPI_USEINT
+		while(!spiTransferComplete);
+	#else
+		while(!(inb(SPSR) & (1<<SPIF)));
+	#endif
+*/
+	// send the given data
+	spiTransferComplete = FALSE;
+	outb(SPDR, data);
+
+	// wait for transfer to complete
+	#ifdef SPI_USEINT
+		while(!spiTransferComplete);
+	#else
+		while(!(inb(SPSR) & (1<<SPIF)));
+		// *** reading of the SPSR and SPDR are crucial
+		// *** to the clearing of the SPIF flag
+		// *** in non-interrupt mode
+		//inb(SPDR);
+		// set flag
+		spiTransferComplete = TRUE;
+	#endif
+	// return the received data
+	return inb(SPDR);
 }
 
-char SPI_SlaveReceive(void)
+u16 spiTransferWord(u16 data)
 {
-/* Wait for reception complete */
-while(!(SPSR & (1<<SPIF)));
-/* Return data register */
-return SPDR;
+	u16 rxData = 0;
+
+	// send MS byte of given data
+	rxData = (spiTransferByte((data>>8) & 0x00FF))<<8;
+	// send LS byte of given data
+	rxData |= (spiTransferByte(data & 0x00FF));
+
+	// return the received data
+	return rxData;
 }

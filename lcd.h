@@ -41,6 +41,8 @@
 #ifndef LCD_H
 #define LCD_H
 
+#include "global.h"
+
 // include project-dependent configurations
 #include "lcdconf.h"
 
@@ -101,7 +103,7 @@
 #define LCD_MODE_DEFAULT		((1<<LCD_ENTRY_MODE) | (1<<LCD_ENTRY_INC))
 
 // custom LCD characters
-const extern unsigned char __attribute__ ((progmem)) LcdCustomChar[];
+extern unsigned char __attribute__ ((progmem)) const LcdCustomChar[];
 #define LCDCHAR_PROGRESS05		0	// 0/5 full progress block
 #define LCDCHAR_PROGRESS15		1	// 1/5 full progress block
 #define LCDCHAR_PROGRESS25		2	// 2/5 full progress block
@@ -136,13 +138,13 @@ void lcdInitHW(void);
 // waits until LCD is not busy
 void lcdBusyWait(void);
 // writes a control command to the LCD
-void lcdControlWrite(uint8_t data);
+void lcdControlWrite(u08 data);
 // read the control status from the LCD
-uint8_t lcdControlRead(void);
+u08 lcdControlRead(void);
 // writes a data byte to the LCD screen at the current position
-void lcdDataWrite(uint8_t data);
+void lcdDataWrite(u08 data);
 // reads the data byte on the LCD screen at the current position
-uint8_t lcdDataRead(void);
+u08 lcdDataRead(void);
 
 
 // ****** High-levlel functions ******
@@ -161,21 +163,21 @@ void lcdClear(void);
 
 // moves the cursor/position to the row,col requested
 // ** this may not be accurate for all displays
-void lcdGotoXY(uint8_t col, uint8_t row);
+void lcdGotoXY(u08 col, u08 row);
 
 // loads a special user-defined character into the LCD
 // <lcdCustomCharArray> is a pointer to a ROM array containing custom characters
 // <romCharNum> is the index of the character to load from lcdCustomCharArray
 // <lcdCharNum> is the RAM location in the LCD (legal value: 0-7)
-void lcdLoadCustomChar(uint8_t* lcdCustomCharArray, uint8_t romCharNum, uint8_t lcdCharNum);
+void lcdLoadCustomChar(u08* lcdCustomCharArray, u08 romCharNum, u08 lcdCharNum);
 
 // prints a series of bytes/characters to the display
-void lcdPrintData(char* data, uint8_t nBytes);
+void lcdPrintData(char* data, u08 nBytes);
 
 // displays a horizontal progress bar at the current cursor location
 // <progress> is the value the bargraph should indicate
 // <maxprogress> is the value at the end of the bargraph
 // <length> is the number of LCD characters that the bargraph should cover
-void lcdProgressBar(uint16_t progress, uint16_t maxprogress, uint8_t length);
+void lcdProgressBar(u16 progress, u16 maxprogress, u08 length);
 
 #endif
