@@ -344,10 +344,6 @@ int main(void) {
 				lcdPrintData(text, strlen(text)); //Display the text on the LCD
 				break;
 			case DTEMP:
-				break;
-			case DACCEL:
-				break;
-			case DTEMP:
 				//Master receive mode, follow instruction on page 222 of the AT90CAN128 Data sheet
       			//Send start condition
 				TWCR = (1<<TWINT) | (1<<TWSTA) | (1<<TWEN);
