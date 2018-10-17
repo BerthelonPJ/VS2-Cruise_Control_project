@@ -16,12 +16,31 @@
 #include "gpio.h"
 #include "usart.h"
 #include "spi.h"
+#include "i2c.h"
+#include "delay.h"
+#include "lm77.h"
+#include "iis328dq.h"
+#include "fxas21002c.h"
+#include "realtime_clock.h"
+#include "spi.h"
 
 #define DISPLAYLENGTH 16
-#define DTOP DACCEL
+#define DTOP DSTEER
 
-enum dStates {DBOOT, DSPEED, DSTEER, DTEMP, DACCEL};    /* enumeration of states (C programming, p) */
-char *dbStateName[] = {"Speed", "Steering Angle", "Temp.", "Accel."}; /* initialization of Pointer Array*/
+#define LM77_ADDR	0x48 // I2C address of the LM77 temperature sensor
+//Poll the temperature each 500ms
+#define COUNTER_POLL_TEMP_INTERVAL	500
+#define COUNTER_POLL_TIME_INTERVAL	100
+
+//Counter which keeps track of how many ms has passed since the last temperature polling
+volatile unsigned int counter_poll_temperature = COUNTER_POLL_TEMP_INTERVAL;
+//Counter which keeps track of how many ms has passed since the last time polling
+volatile unsigned int counter_poll_time = COUNTER_POLL_TIME_INTERVAL;
+
+float curr_temp = 0;
+
+enum dStates {DBOOT,DSPEED,DTEMP,DACCEL,DSTEER};    /* enumeration of states (C programming, p) */
+char *dbStateName[] = {"Coucou ça boot","Speed", "Temp.", "Accel.", "Steer"}; /* initialization of Pointer Array*/
 volatile unsigned int dbState;        /* display's state (activated by buttons)*/
 volatile unsigned char buttons;        // This registers holds a copy of PINC when an external interrupt 6 has occurred.
 volatile unsigned char bToggle = 0;    // This registers is a boolean that is set when an interrupt 6 occurs and cleared when serviced in the code.
@@ -57,6 +76,15 @@ int initExtInt(void)
     return(0);
 }
 
+/** This function initializes the I2C clock */
+void setupTWI()
+{
+	//Setting up TWI baud rate to 100kHz
+	TWBR = 72;		//Look at formula on page 210;
+	TWSR &= ~(1<<TWPS1) & ~(1<<TWPS0); //With no pre-scaler
+}
+
+
 /** This function initializes the LCD display and should be called only once before the while(1) loop in the main(). */
 int initDisplay(void)
 {
@@ -91,6 +119,10 @@ int dbStateDown(void)
     lcdPrintData(dbStateName[dbState], strlen(dbStateName[dbState])); //Display the text on the LCD
     return 0;
 }
+/*int brake(void)
+{
+	return 0;
+}*/
 // The purpose of this function is to get the current_speed of the car.
 /** This function uses the push buttons to let the user to change states upon boot up. It is also used to enter in Coffee maker mode*/
 int DbBOOThandler(void)
@@ -122,7 +154,7 @@ int DbSPEEDhandler(void)
 {
     switch(buttons & 0b11111000){
         case 0b10000000:            //S5 center button
-            brake();
+            //brake();
             break;
         case 0b01000000:            //S4  upper button
             dbStateUp();
@@ -147,7 +179,7 @@ int DbSTEERhandler(void)
 {
     switch(buttons & 0b11111000){
         case 0b10000000:            //S5 center button
-            brake();
+            //brake();
             break;
         case 0b01000000:            //S4  upper button
             dbStateUp();
@@ -173,7 +205,7 @@ int DbTEMPhandler(void)
 {
     switch(buttons & 0b11111000){
         case 0b10000000:            //S5 center button
-            brake();
+            //brake();
             break;
         case 0b01000000:            //S4  upper button
             dbStateUp();
@@ -198,7 +230,7 @@ int DbACCELhandler(void)
 {
     switch(buttons & 0b11111000){
         case 0b10000000:            //S5 center button
-            brake();
+            //brake();
             break;
         case 0b01000000:            //S4  upper button
             dbStateUp();
@@ -218,21 +250,38 @@ int DbACCELhandler(void)
     }
     return 0;
 }
+void error(unsigned char val)
+{
+	unsigned char text[16];
+	sprintf(text,"Error: 0x%02X",val);
+	lcdGotoXY(0,1);
+	lcdPrintData(text, strlen(text)); //Display the text on the LCD
+}
 
 
 int main(void) {
+  //unsigned char temp ;		//Allocate memory for  temp
+  char temp, tempLow ;		//Allocate memory for  temp and temp2
   char cursor = 0;				/* allocate a variable to keep track of the cursor position and initialize it to 0 */
   char textLine[DISPLAYLENGTH + 1];	/* allocate a consecutive array of 16 characters where your text will be stored with an end of string */
   char text[10];				//Allocate an array of 10 bytes to store text
   uint16_t adcBuffer;			// Allocate the memory to hold ADC results that is not disturbed by interrupts
 
+
+  char debug;				//debug byte to look at the TWI status register code
+  int temperature;		// Allocate a word for the temperature
+  float curr_temp = 0;		// Floating type memory allocation for the temperature
+
+
   textLine[0] = 'A';				/* initialize the first ASCII character to A or 0x41 */
   textLine[1] = '\0';				/* initialize the second character to be an end of text string */
   temp = initGPIO();		//Set up the data direction register for both ports B, C and G
-	temp = initDisplay();	//Set up the display
+  temp = initDisplay();	//Set up the display
   temp = initExtInt();	//Set up the external interrupt for the push buttons
   temp = initADC();		// Setup the Analog to Digital Converter
-  TimerCounter0setup(128);// enable the dimming of the display backlight with PWM using TimerCounter 0 and pin OCR0
+  //TimerCounter0setup(128);// enable the dimming of the display backlight with PWM using TimerCounter 0 and pin OCR0
+  setupTWI(); //Initialization of the TWI, for the temp sensor.
+
 
   ADCSRA |= (1<<ADSC);	//Start ADC
   sei();					// Set Global Interrupts
@@ -275,18 +324,26 @@ int main(void) {
 			PORTC = 0b00000000;
 			PORTG &= 0b00000000;
 		}
-
 		if (bToggle)			//This is set to true only in the interrupt service routine at the bottom of the code
 		{
 			switch (dbState){
 				case DBOOT:
 					DbBOOThandler();
 					break;
-				case DADC:
-					DbADChandler();
+				case DSPEED:
+					DbSPEEDhandler();
 					break;
-				case DTEXT:
-					cursor = DbTEXThandler(textLine, cursor);
+				case DACCEL:
+					DbACCELhandler();
+					break;
+				case DTEMP:
+					DbTEMPhandler();
+					break;
+				case DACCEL:
+					DbACCELhandler();
+					break;
+				case DSTEER:
+					DbSTEERhandler();
 					break;
 				default:
 					break;
@@ -297,16 +354,100 @@ int main(void) {
 		switch (dbState){
 			case DBOOT:
 				break;
-			case DTEXT:
-				lcdGotoXY(0, 1);     //Position the cursor on
-				lcdPrintData(textLine, strlen(textLine)); //Display the text on the LCD
-				break;
-			case DADC:
-				itoa(adcBuffer, text, 9);	//Convert the unsigned integer to an ascii string; look at 3.6 "The C programming language"
+			case DSPEED:
+				itoa(adcBuffer, text, 10);	//Convert the unsigned integer to an ascii string; look at 3.6 "The C programming language"
 				lcdGotoXY(5, 1);     //Position the cursor on
 				lcdPrintData("      ", 6); //Clear the lower part of the LCD
-				lcdGotoXY(5, 1);     //Position the cursor on
+			    lcdGotoXY(5, 1);     //Position the cursor on
 				lcdPrintData(text, strlen(text)); //Display the text on the LCD
+				break;
+			case DTEMP:
+				// //Master receive mode, follow instruction on page 222 of the AT90CAN128 Data sheet
+      	// 		//Send start condition
+				// TWCR = (1<<TWINT) | (1<<TWSTA) | (1<<TWEN);
+				// //Wait for TWINT flag to be set (Start has been transmitted)
+				// while ( !(TWCR & (1<<TWINT)));
+				// //Check the value of the TWI status register, making the pre-scaler
+				// debug = TWSR;
+				// if ((debug & 0xF8) != 0x08)	//We are master of the bus
+				// {
+				// 	error(debug & 0xF8);
+				// }
+				// //Load LM77 address to TWI data register
+				// TWDR = ((LM77_ADDR << 1)| 0x01 ); //Shift the 7 bit address while or-ing it with the read bit
+				// TWCR = (1 << TWINT) | (1 << TWEN); //Clear TWINT to start the transmission
+				//  while (!(TWCR & (1<<TWINT)));  //Wait for TWINT flag to be set which indicates that the address was sent and acknowledged
+				// debug = TWSR;
+				// if ((debug & 0xF8) != 0x40)  //SLA+R has been sent and acknowledge has been received
+				// {
+				// 	error(debug & 0xF8);
+				// }
+				// TWCR = (1 << TWINT) | (1 << TWEN) | (1<<TWEA); //Clear TWINT to start the reception of the first byte
+				// //enable acknowledge for the first byte.
+				// while (!(TWCR & (1<<TWINT)));  //Wait for TWINT flag to be set which indicates that the address was sent and acknowledged
+				// debug = TWSR;
+				// if ((debug & 0xF8) != 0x50)  //Data byte has been received and ACK has been sent
+				// {
+				// 	error(debug & 0xF8);
+				// }
+        //
+				// temp = TWDR; //High byte (D15-D8)
+        //
+				// TWCR = (1 << TWINT) | (1 << TWEN) ; //Clear TWINT to start the reception of the second byte
+				// while (!(TWCR & (1<<TWINT)));  //Wait for TWINT flag to be set which indicates that the address was sent and acknowledged
+				// debug = TWSR;
+				// if ((debug & 0xF8) != 0x58)  //Look for an acknowledgment from the LM77
+				// {
+				// 	error(debug & 0xF8);
+				// }
+				// tempLow = TWDR;		// Low byte (D7-D0)
+        //
+				// //Transmit STOP condition
+				// TWCR = (1<<TWINT) | (1<<TWEN) | (1<<TWSTO);
+        //
+				// tempLow = (tempLow>>3) | ((temp & 0x07)<<5);	// The lower 3 bits of the least significant byte do not refer to the temperature. We shift them out and need to bring in bits from the MSB
+				// temp = (temp >> 3);
+				// temperature = (temp << 8) | tempLow;
+        //
+        //
+				// if (temperature & 0x200)
+				// {
+				// 	temperature = !temperature + 1;	// two's complement
+				// 	curr_temp = temperature * (-0.5f);
+				// }
+				// else
+				// 	curr_temp = temperature * (0.5f);
+        //
+				// //Copy the temperature into the display[0] 16 byte character buffer
+				// sprintf(text,"Temp: %.1fC", curr_temp);
+				// lcdGotoXY(0,1);
+				// lcdPrintData(text, strlen(text)); //Display the text on the LCD
+
+        if (counter_poll_temperature >= COUNTER_POLL_TEMP_INTERVAL) {
+  			//Retrieve the temperature from the lm77 temperature sensor
+  			curr_temp = lm77_read_temp();
+
+  			//Copy the temperature into the display[0] 16 byte character buffer
+  			sprintf(display[0],"Temp: %.1fC",curr_temp);
+
+  			//If the temperature goes over 28 degrees the relay will get activated. When it
+  			//goes under 28 degrees the relay will be deactivated
+  			if (curr_temp >= 28)
+  				ext_dev_relay_on();
+  			else
+  				ext_dev_relay_off();
+
+  			lcdGotoXY(0,0);
+  			lcdPrintData("                ",16);
+  			lcdGotoXY(0,0);
+  			lcdPrintData(display[0],strlen(display[0]));
+
+  			//Reset the counter variable
+  			counter_poll_temperature = 0;
+      break;
+			case DACCEL:
+				break;
+			case DSTEER:
 				break;
 			default:
 				lcdGotoXY(0, 1);     //Position the cursor on the first character of the first line
@@ -314,11 +455,7 @@ int main(void) {
 				break;
 		}
 	}
-
-
-
-
-    return 0;
+  return 0;
 }
 
 /* the functions below are Interrupt Service Routines, they are never called by software */
