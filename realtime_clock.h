@@ -1,6 +1,6 @@
-/*! \file usart.h \brief USART routines. 
+/*! \file realtime_clock.h \brief The realtime clock M41T0M6E
  * \author Mikael Larsmark
- * \date 2009-10-28
+ * \date 2009-10-29
  */
 /***************************************************************************
  *   Copyright (C) 2009 by Mikael Larsmark, Luleå University of Technology *
@@ -23,23 +23,15 @@
  ***************************************************************************/
 
 
-#ifndef _USART_H_
-#define _USART_H_
+#ifndef _REALTIME_CLOCK_H_
+#define _REALTIME_CLOCK_H_
 
-unsigned char poll_usart0_receive (void);
-void usart0_init (unsigned int baudrate);
-unsigned char usart0_transmit (unsigned char data);
-unsigned char usart0_receive (void);
-unsigned char usart0_receive_loopback (void);
-unsigned char poll_usart0_receive (void);
-unsigned char usart0_sendstring (char *data,unsigned char length);
+#define RTC_ADDR	0x68
 
-unsigned char poll_usart1_receive (void);
-void usart1_init (unsigned int baudrate);
-unsigned char usart1_transmit (unsigned char data);
-unsigned char usart1_receive (void);
-unsigned char usart1_receive_loopback (void);
-unsigned char poll_usart1_receive (void);
-unsigned char usart1_sendstring (char *data,unsigned char length);
+unsigned char rtc_init(unsigned char seconds, unsigned char minutes, unsigned char hours, unsigned char date, unsigned char month, unsigned char year);
+
+unsigned char rtc_get_time(char *time);
+
+unsigned char rtc_get_date(char *date);
 
 #endif

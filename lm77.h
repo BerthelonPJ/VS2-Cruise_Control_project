@@ -1,4 +1,4 @@
-/*! \file usart.h \brief USART routines. 
+/*! \file lm77.h \brief Temperature sensor LM77
  * \author Mikael Larsmark
  * \date 2009-10-28
  */
@@ -23,23 +23,11 @@
  ***************************************************************************/
 
 
-#ifndef _USART_H_
-#define _USART_H_
+#ifndef _LM77_H_
+#define _LM77_H_
 
-unsigned char poll_usart0_receive (void);
-void usart0_init (unsigned int baudrate);
-unsigned char usart0_transmit (unsigned char data);
-unsigned char usart0_receive (void);
-unsigned char usart0_receive_loopback (void);
-unsigned char poll_usart0_receive (void);
-unsigned char usart0_sendstring (char *data,unsigned char length);
+#define LM77_ADDR	0x48
 
-unsigned char poll_usart1_receive (void);
-void usart1_init (unsigned int baudrate);
-unsigned char usart1_transmit (unsigned char data);
-unsigned char usart1_receive (void);
-unsigned char usart1_receive_loopback (void);
-unsigned char poll_usart1_receive (void);
-unsigned char usart1_sendstring (char *data,unsigned char length);
+float lm77_read_temp(void);
 
 #endif

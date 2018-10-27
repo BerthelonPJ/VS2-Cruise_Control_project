@@ -1,7 +1,3 @@
-/*! \file usart.h \brief USART routines. 
- * \author Mikael Larsmark
- * \date 2009-10-28
- */
 /***************************************************************************
  *   Copyright (C) 2009 by Mikael Larsmark, Luleå University of Technology *
  *   larsmark@ltu.se                                                       *
@@ -23,23 +19,36 @@
  ***************************************************************************/
 
 
-#ifndef _USART_H_
-#define _USART_H_
+#include <stdio.h>
+#include <stdlib.h>
+#include <avr/io.h>
 
-unsigned char poll_usart0_receive (void);
-void usart0_init (unsigned int baudrate);
-unsigned char usart0_transmit (unsigned char data);
-unsigned char usart0_receive (void);
-unsigned char usart0_receive_loopback (void);
-unsigned char poll_usart0_receive (void);
-unsigned char usart0_sendstring (char *data,unsigned char length);
+#include "lm77.h"
+#include "i2c.h"
 
-unsigned char poll_usart1_receive (void);
-void usart1_init (unsigned int baudrate);
-unsigned char usart1_transmit (unsigned char data);
-unsigned char usart1_receive (void);
-unsigned char usart1_receive_loopback (void);
-unsigned char poll_usart1_receive (void);
-unsigned char usart1_sendstring (char *data,unsigned char length);
+//TODO: Implement the critical limits etc for the lm77 temperature sensor
 
-#endif
+/*! \brief Reads the temperature from the LM77 sensor
+ *  \return The temperature as a floating point value */
+float lm77_read_temp(void) {
+	unsigned char temp[2];
+
+	temp[0] = 0;
+	temp[1] = 0;
+
+	i2cMasterReceiveNI(LM77_ADDR, 2, (unsigned char *)temp);
+
+	temp[1] = (temp[1]>>3) | ((temp[0] & 0x07)<<5);
+	temp[0] = (temp[0]>>3);
+
+	int int_temp = (temp[0]<<8) | temp[1];
+
+	//Check the sign bit - Not tested in minus degrees
+	if (int_temp & 0x200) {
+		int_temp = !int_temp + 1;
+
+		return(int_temp * (-0.5f));
+	}
+
+	return(int_temp * 0.5f);
+}
