@@ -11,6 +11,8 @@
 #include <avr/io.h> // input output header file for this AVR chip.
 #include <avr/pgmspace.h>    // Contains some type definitions and functions.
 #include <avr/interrupt.h>    // Contains ISR (Interrupt Service Routines) or interrupt handler details
+#include "avrlibdefs.h"
+#include "avrlibtypes.h"
 #include "global.h"
 #include "delay.h"
 #include "lcd.h"
@@ -19,6 +21,7 @@
 #include "spi.h"
 #include "lm77.h"
 #include "i2c.h"
+#include "i2cconf.h"
 #include "realtime_clock.h"
 
 
@@ -42,9 +45,9 @@ volatile unsigned int counter_poll_time = COUNTER_POLL_TIME_INTERVAL;
 volatile int controlState = 0;
 
 // enumeration of states that will be displayed on the second line of the screen
-enum dStates {DBOOT,DSPEED,DTEMP,DACCEL,DSTEER};
+enum dStates {DBOOT,DSPEED,DTEMP,DACCEL,DICP,DSTEER};
 // Strings that will be displayed on the second line of the screen
-char *dbStateName[] = {"Cruise Control","Speed", "Temp.", "Accel.","Steer"};
+char *dbStateName[] = {"Cruise Control","Speed", "Temp.", "Accel.","ICP","Steer"};
 // Int used to go through the array of states
 volatile unsigned int dbState;
 
@@ -73,6 +76,13 @@ volatile int init_speed = 0;
 
 // SPI new byte
 volatile char spiByte;
+
+//Input capture register
+volatile uint16_t curr_icp, last_icp;
+// Boolean to keep track if Timer/Counter has overflown
+volatile unsigned int overflow;
+
+
 
 /** Function used to initialize the ADC on the board. */
 int initADC()
@@ -175,6 +185,19 @@ void TimerCounter3setup(void)
   ICR3 = 2500;
 }
 
+/** This function initializes the TimerCouter1 for Input Capture of a cyclic wave.*/
+void initializeTimerCounter1(void)
+{
+	// The input capture pin is on JP14 near the relay on the development board.
+	//Page 137 or 138
+	TCCR1A = 0;				//Timer/Counter1 Control Register A is not really used
+	TCCR1B = (1<<ICNC1);	//noise canceler
+	TCCR1B |= (1<<ICES1);	//rising edge on ICP1 cause interrupt
+	TCCR1B |= (0<<CS12)| (0<<CS11)| (1<<CS10); //NO pre-scaler,
+	TIFR1 |= (1<<ICF1);		//Set input capture flag
+	TCNT1 = 0;				//Timer Counter 1
+	TIMSK1 |= (1<<ICIE1); //|(1<<TOIE1); //Timer Interrupt Mask Register,Input Capture Interrupt Enable, T/C overflow Interrupt commented out so overflow counter is not incremented
+}
 
 /** This function is called when cycling through the states.*/
 int dbStateUp(void)
@@ -209,7 +232,7 @@ void initCruise(uint16_t select_speed)
   set_speed = (select_speed + 277)/4.26;
 }
 
-/** This function is called when the cruise contorller is on. it controls the cruise manager,
+/** This function is called when the cruise controller is on. it controls the cruise manager,
 The purpose is that we retrieve the current speed from the potentiometer, then we transform it as in the previous function,
 and finally we compare it to the value we set earlier.
 If the current speed is lower than expected, then we open the throttle valve. To the oposite we may close the valve to reduce speed.
@@ -562,7 +585,7 @@ int DbTIMEhandler(void)
 
 int main(void) {
 
-  // char temp, tempLow ;		//Allocate memory for  temp and temp2
+  char temp, tempLow ;		//Allocate memory for  temp and temp2
   //allocate a variable to keep track of the cursor position and initialize it to 0
   char cursor = 0;
   //Allocate an array of 10 bytes to store text
@@ -574,6 +597,10 @@ int main(void) {
 
   //debug byte to look at the TWI status register code
   char debug;
+
+  // allocate memory for elapse time input capture events
+  int etime;
+
 
   // allocate the memory for the 3D accelerometer structure
   accelSPI axel3D;
@@ -591,6 +618,8 @@ int main(void) {
   //Initialize TimerCounter0 with a compare value of 128
   // enable the dimming of the display backlight with PWM using TimerCounter 0 and pin OCR0
   TimerCounter0setup(128);
+  //Initialise TimerCounter1 to use PWM for inpiut capture.
+  initializeTimerCounter1();
   //Initialize TimerCounter3 to use PWM on the servo motor.
   TimerCounter3setup();
   // Set up SPI and accelerometer
@@ -604,7 +633,7 @@ int main(void) {
   //Disable global interrupts
   cli();
   //Initialize the I2C communication bus
-  //i2cInit();
+  i2cInit();
   //Start ADC
   ADCSRA |= (1<<ADSC);
   // Set Global Interrupts
@@ -710,45 +739,37 @@ int main(void) {
         break;
 			case DTEMP:
 
-         // if (counter_poll_temperature >= COUNTER_POLL_TEMP_INTERVAL)
-         // {
-         //    //Retrieve the temperature from the lm77 temperature sensor
-         //    curr_temp = lm77_read_temp();
-         //
-         //
-         //    //Copy the temperature into the display[0] 16 byte character buffer
-         //    sprintf(display[1],"Temp: %.1fC",curr_temp);
-         //    // usart1_sendstring(display[1], strlen(display[1]));
-         //
-         //    usart1_sendstring(display[1], strlen(display[1]));	/* transmit over USART 1 the value of the ADC */
-         //    usart1_transmit('\t');	// transmit a new line
-         //    usart1_sendstring(display[0], strlen(display[0]));	/* transmit over USART 1 the value of the ADC */
-         //    usart1_transmit('\n');
-         //    usart1_transmit('\r');	// transmit a carriage return
-         //
-         //    //If the temperature goes over 28 degrees the relay will get activated. When it
-         //    //goes under 28 degrees the relay will be deactivated
-         //
-         //    lcdGotoXY(0,1);
-         //    lcdPrintData("                ",16);
-         //    lcdGotoXY(0,1);
-         //    lcdPrintData(display[1],strlen(display[1]));
-         //
-         //    //Reset the counter variable
-         //    counter_poll_temperature = 0;
-         //  }
+         if (counter_poll_temperature >= COUNTER_POLL_TEMP_INTERVAL)
+         {
+            //Retrieve the temperature from the lm77 temperature sensor
+            curr_temp = lm77_read_temp();
+
+
+            //Copy the temperature into the display[0] 16 byte character buffer
+            sprintf(display[1],"Temp: %.1fC",curr_temp);
+            // usart1_sendstring(display[1], strlen(display[1]));
+
+            usart1_sendstring(display[1], strlen(display[1]));	/* transmit over USART 1 the value of the ADC */
+            usart1_transmit('\t');	// transmit a new line
+            usart1_sendstring(display[0], strlen(display[0]));	/* transmit over USART 1 the value of the ADC */
+            usart1_transmit('\n');
+            usart1_transmit('\r');	// transmit a carriage return
+
+            //If the temperature goes over 28 degrees the relay will get activated. When it
+            //goes under 28 degrees the relay will be deactivated
+
+            lcdGotoXY(0,1);
+            lcdPrintData("                ",16);
+            lcdGotoXY(0,1);
+            lcdPrintData(display[1],strlen(display[1]));
+
+            //Reset the counter variable
+            counter_poll_temperature = 0;
+          }
 
           break;
 			case DACCEL:
-      if ( controlState == 1 )
-      {
-        itoa(set_speed,text_speed, 10);
-        sprintf(display[0],"set speed: %s",text_speed);
-        lcdHome();
-        lcdPrintData("                ",16);
-        lcdHome();
-        lcdPrintData(display[0], strlen(display[0]));
-      }
+
 
         axel3D = acc(); // get the new averages of x, y and z from the accelerometer
 
@@ -756,6 +777,16 @@ int main(void) {
            (~axel3D.x)+1;// [value is x, y or z]
 
         utoa(axel3D.x, text, 10);	//Convert the unsigned integer to an ascii string; look at 3.6 "The C programming language"
+        if ( controlState == 1 )
+        {
+          itoa(set_speed,text_speed, 10);
+          sprintf(display[0],"set speed: %s",text_speed);
+          lcdHome();
+          lcdPrintData("                ",16);
+          lcdHome();
+          lcdPrintData(display[0], strlen(display[0]));
+        }
+
         sprintf(display[1], "Curr. Accel :%s", text);
 
         lcdGotoXY(0, 1);     //Position the cursor on
@@ -784,6 +815,42 @@ int main(void) {
       //     counter_poll_time = 0;
       //   }
       //   break;
+      case DICP:
+				cli();
+				if (curr_icp > last_icp)
+				{
+					etime = curr_icp - last_icp;
+				}
+				else
+				{
+					etime = curr_icp + (65365 - last_icp);
+				}
+				sei();
+        if ( controlState == 1 )
+        {
+          itoa(set_speed,text_speed, 10);
+          sprintf(display[0],"set speed: %s",text_speed);
+          lcdHome();
+          lcdPrintData("                ",16);
+          lcdHome();
+          lcdPrintData(display[0], strlen(display[0]));
+        }
+				// If you used the overflow counter, you would add them here and need to reset the overflow counter.
+
+				utoa(etime, &text[0], 10);	//Convert the unsigned integer to an ascii string
+        sprintf(display[1], "Curr. dist :%s", text);
+        lcdGotoXY(0, 1);     //Position the cursor on
+        lcdPrintData("                ", 16); //Clear part of the lower part of the LCD
+        lcdGotoXY(0, 1);     //Position the cursor
+        lcdPrintData(display[1], strlen(display[1])); //Display the text on the LCD
+
+        usart1_sendstring(display[1], strlen(display[1]));	/* transmit over USART 1 the value of the ADC */
+        usart1_transmit('\t');	// transmit a new line
+        usart1_sendstring(display[0], strlen(display[0]));	/* transmit over USART 1 the value of the ADC */
+        usart1_transmit('\n');
+        usart1_transmit('\r');	// transmit a carriage return
+				break;
+
 			case DSTEER:
         //Basically the same that what is in initADC'), but we set the ADC channel to channel 1 instead of channel 0
         ADMUX &= ~(1<<REFS1);  //Clear REFS1 (although it should be 0 at reset)
@@ -876,4 +943,17 @@ ISR(SIG_OUTPUT_COMPARE0) {
 // }
 SIGNAL(SPI_STC_vect) {		//interrupt from SPI
 	spiByte = SPDR;	// Read - and store incoming byte
+}
+
+/** This function is executed every time an event. */
+ISR(TIMER1_CAPT_vect)
+{
+	last_icp = curr_icp;
+	curr_icp = ICR1;
+}
+
+/** This function is executed every time Interrupt 6 is triggered. */
+ISR(TIMER1_OVF_vect)
+{
+	overflow++;
 }
